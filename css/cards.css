@@ -1,0 +1,149 @@
+/* === Card component === */
+
+.card {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  perspective: 600px;
+  cursor: pointer;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  touch-action: manipulation;
+  outline: none;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: var(--card-radius, 8px);
+}
+
+/* --- Inner wrapper (3D flip container) --- */
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform var(--flip-duration, 0.4s);
+  transform-style: preserve-3d;
+}
+
+.card.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+/* --- Card faces (shared) --- */
+
+.card-front,
+.card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: var(--card-radius, 8px);
+  overflow: hidden;
+}
+
+/* --- Front face (shown after flip) --- */
+
+.card-front {
+  transform: rotateY(180deg);
+  background: var(--card-front-color, #f5f0e1);
+  border: 2px solid var(--gold-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  color: #2a1a0a;
+}
+
+/* --- Back face (shown by default) --- */
+
+.card-back {
+  /* Damask pattern overlay on burgundy gradient */
+  background:
+    url('../assets/decorations/openclipart-damask-pattern.svg'),
+    linear-gradient(145deg, var(--burgundy) 0%, var(--burgundy-dark) 50%, #3a0812 100%);
+  background-size: 80px, 100%;
+  background-blend-mode: soft-light;
+  border: 2px solid var(--gold-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    inset 0 0 20px rgba(0, 0, 0, 0.4),
+    inset 0 0 3px rgba(201, 168, 76, 0.15);
+}
+
+/* Inner gold border line (double border effect) */
+.card-back::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  border-radius: calc(var(--card-radius, 8px) - 4px);
+  pointer-events: none;
+}
+
+/* Center fleuron symbol */
+.card-back::after {
+  content: "\2766";
+  font-size: 1.6rem;
+  color: var(--gold);
+  opacity: 0.35;
+  user-select: none;
+  text-shadow: 0 0 8px rgba(201, 168, 76, 0.2);
+}
+
+/* --- Matched state --- */
+
+.card.matched {
+  opacity: var(--matched-opacity, 0.5);
+  pointer-events: none;
+  cursor: default;
+}
+
+.card.matched .card-front {
+  box-shadow:
+    0 0 12px 3px rgba(201, 168, 76, 0.5),
+    0 0 24px 6px rgba(201, 168, 76, 0.2),
+    inset 0 0 8px rgba(201, 168, 76, 0.15);
+  border-color: var(--gold);
+}
+
+/* --- Hover / interaction --- */
+
+@media (hover: hover) and (pointer: fine) {
+  .card:not(.flipped):not(.matched):hover .card-inner {
+    filter: brightness(1.15);
+  }
+
+  .card:not(.flipped):not(.matched):hover .card-back {
+    border-color: var(--gold);
+    box-shadow:
+      inset 0 0 20px rgba(0, 0, 0, 0.3),
+      0 0 14px rgba(201, 168, 76, 0.3),
+      0 0 4px rgba(201, 168, 76, 0.15);
+  }
+}
+
+/* --- Nightmare mode --- */
+
+.card-front.nightmare {
+  font-size: 0;
+  color: transparent;
+}
+
+/* --- Accessibility --- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --flip-duration: 0.01s;
+  }
+
+  .card:not(.flipped):not(.matched):hover .card-inner {
+    filter: none;
+  }
+}

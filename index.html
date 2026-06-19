@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>デニール神経衰弱</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Noto+Serif+JP:wght@400;700&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/cards.css">
+  <link rel="stylesheet" href="css/screens.css">
+</head>
+<body>
+
+  <canvas id="atmosphere-canvas"></canvas>
+
+  <div class="table-panel">
+
+    <!-- タイトル画面 -->
+    <section id="title-screen" class="screen active">
+      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--top" alt="" aria-hidden="true">
+      <h1>デニール神経衰弱</h1>
+      <p class="tagline">ストッキングの厚さ、見分けられる？</p>
+      <button type="button" id="btn-start" class="btn btn-primary">START</button>
+      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--bottom" alt="" aria-hidden="true">
+    </section>
+
+    <!-- 難易度選択画面 -->
+    <section id="select-screen" class="screen">
+      <h2>難易度を選択</h2>
+      <div class="difficulty-grid">
+        <button type="button" class="btn-difficulty" data-difficulty="easy">
+          <span class="difficulty-name">Easy</span>
+          <span class="difficulty-info">6ペア / 12枚</span>
+        </button>
+        <button type="button" class="btn-difficulty" data-difficulty="normal">
+          <span class="difficulty-name">Normal</span>
+          <span class="difficulty-info">10ペア / 20枚</span>
+        </button>
+        <button type="button" class="btn-difficulty" data-difficulty="hard">
+          <span class="difficulty-name">Hard</span>
+          <span class="difficulty-info">14ペア / 28枚</span>
+        </button>
+        <button type="button" class="btn-difficulty" data-difficulty="nightmare">
+          <span class="difficulty-name">Nightmare</span>
+          <span class="difficulty-info">色だけで判別 / 10ペア</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ゲーム画面 -->
+    <section id="game-screen" class="screen">
+      <div id="hud">
+        <span id="move-counter">手数: 0</span>
+        <span id="timer">時間: 0:00</span>
+      </div>
+      <div id="game-board"></div>
+    </section>
+
+    <!-- 結果画面 -->
+    <section id="result-screen" class="screen">
+      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--top" alt="" aria-hidden="true">
+      <h2>結果</h2>
+      <div class="result-stats">
+        <p id="result-difficulty"></p>
+        <p id="result-moves"></p>
+        <p id="result-time"></p>
+      </div>
+      <div class="result-buttons">
+        <button type="button" id="btn-retry" class="btn btn-primary">もう一回</button>
+        <button type="button" id="btn-title" class="btn btn-secondary">タイトルへ</button>
+      </div>
+      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--bottom" alt="" aria-hidden="true">
+    </section>
+
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

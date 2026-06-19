@@ -1,0 +1,227 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* === Body: dark damask wallpaper (outer layer) === */
+
+body {
+  background-color: var(--wallpaper-bg, #0a0a08);
+  background-image: url('../assets/decorations/openclipart-damask-pattern.svg');
+  background-size: 220px;
+  background-repeat: repeat;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  min-height: 100dvh;
+  touch-action: manipulation;
+  position: relative;
+}
+
+/* Darken the damask pattern to near-invisible subtlety */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-color: rgba(10, 10, 8, 0.94);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* === Atmosphere canvas (Three.js particle layer, behind everything) === */
+/* Layering: body bg (-inf) -> body::before (-1) -> atmosphere (0) -> table-panel (1) -> vignette (100) */
+
+#atmosphere-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 90;
+  pointer-events: none;
+}
+
+/* === Table panel: the green felt card table (inner layer) === */
+
+.table-panel {
+  position: relative;
+  z-index: 1;
+  max-width: 920px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 2.5rem 2rem;
+  background-color: var(--bg-felt);
+  background-image: url('../assets/textures/subtle-felt.png');
+  background-blend-mode: multiply;
+  background-size: 250px;
+  border-left: 3px solid var(--table-border-color);
+  border-right: 3px solid var(--table-border-color);
+  box-shadow:
+    inset 0 0 60px rgba(0, 0, 0, 0.4),
+    0 0 40px var(--table-shadow-outer),
+    0 0 80px var(--table-shadow-outer),
+    -4px 0 20px rgba(201, 168, 76, 0.06),
+    4px 0 20px rgba(201, 168, 76, 0.06);
+}
+
+/* --- Corner ornaments (CSS-only, gold fleurons) --- */
+
+.table-panel::before,
+.table-panel::after {
+  position: fixed;
+  font-size: clamp(1.6rem, 4vw, 2.8rem);
+  color: var(--gold);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 50;
+  text-shadow: 0 0 12px var(--gold-glow);
+  line-height: 1;
+}
+
+.table-panel::before {
+  content: "\2766";
+  top: 16px;
+  left: 16px;
+}
+
+.table-panel::after {
+  content: "\2766";
+  bottom: 16px;
+  right: 16px;
+}
+
+/* Two more corners via the inner wrapper of the first screen
+   We use a dedicated element approach with the corner-ornament-* utility */
+
+/* --- Vignette overlay (inside table panel) --- */
+
+.table-panel > .screen::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 30%,
+    rgba(0, 0, 0, 0.35) 65%,
+    rgba(0, 0, 0, 0.65) 90%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Only apply vignette once (from the active screen) */
+.table-panel > .screen:not(.active)::after {
+  display: none;
+}
+
+/* --- Screen system --- */
+
+.screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1rem;
+  position: relative;
+}
+
+.screen.active {
+  display: flex;
+}
+
+/* --- Ornamental dividers --- */
+
+.ornament-divider {
+  width: clamp(150px, 40vw, 320px);
+  height: auto;
+  opacity: 0.35;
+  filter: sepia(1) saturate(3) hue-rotate(10deg) brightness(0.9);
+  pointer-events: none;
+}
+
+.ornament-divider--top {
+  margin-bottom: 1.5rem;
+}
+
+.ornament-divider--bottom {
+  margin-top: 2rem;
+}
+
+/* --- Game area wrapper --- */
+
+#game-screen.screen {
+  align-items: center;
+}
+
+/* --- Game board --- */
+
+#game-board {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols, 4), var(--card-width));
+  gap: var(--card-gap);
+  justify-content: center;
+  width: fit-content;
+}
+
+/* --- HUD --- */
+
+#hud {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: fit-content;
+  min-width: calc(var(--grid-cols, 4) * var(--card-width) + (var(--grid-cols, 4) - 1) * var(--card-gap));
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  font-family: var(--font-heading);
+  color: var(--gold);
+  text-shadow: 0 0 8px rgba(201, 168, 76, 0.3);
+}
+
+/* === Responsive === */
+
+/* Mobile: table panel fills the viewport, no visible border */
+@media (max-width: 767px) {
+  .table-panel {
+    max-width: 100%;
+    border-left: none;
+    border-right: none;
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.4);
+    padding: 1.5rem 1rem;
+  }
+
+  .table-panel::before,
+  .table-panel::after {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --card-width: 64px;
+    --card-gap: 6px;
+  }
+
+  #game-board {
+    max-width: calc(100vw - 2rem);
+  }
+
+  #hud {
+    max-width: calc(100vw - 2rem);
+    font-size: 1rem;
+  }
+}
+
+/* Larger screens: let cards breathe */
+@media (min-width: 768px) {
+  :root {
+    --card-width: 100px;
+    --card-gap: 10px;
+  }
+}

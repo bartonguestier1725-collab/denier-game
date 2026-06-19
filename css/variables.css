@@ -1,0 +1,47 @@
+:root {
+  --card-width: 80px;
+  --card-gap: 8px;
+  --card-radius: 8px;
+  --flip-duration: 0.4s;
+
+  /* Outer wallpaper area */
+  --wallpaper-bg: #0a0a08;
+  --wallpaper-pattern-opacity: 0.045;
+
+  /* Inner table area */
+  --bg-primary: #0f1e0f;
+  --bg-secondary: #1a2e1a;
+  --bg-felt: #162816;
+  --table-border-color: #b8942e;
+  --table-border-glow: rgba(201, 168, 76, 0.25);
+  --table-shadow-outer: rgba(0, 0, 0, 0.7);
+
+  /* Card palette */
+  --card-back-color: #7a1528;
+  --card-back-dark: #5a0f1e;
+  --card-front-color: #f5f0e1;
+
+  /* Text */
+  --text-primary: #e8e0d0;
+  --text-accent: #c9a84c;
+  --text-accent-bright: #d4af37;
+
+  /* Gold spectrum */
+  --gold: #c9a84c;
+  --gold-light: #e8d48b;
+  --gold-dark: #8b7332;
+  --gold-glow: rgba(201, 168, 76, 0.35);
+
+  /* Accent colors */
+  --cream: #f5f0e1;
+  --burgundy: #7a1528;
+  --burgundy-dark: #5a0f1e;
+  --matched-opacity: 0.5;
+
+  /* Typography */
+  --font-display: 'Cinzel Decorative', 'Noto Serif JP', serif;
+  --font-heading: 'Playfair Display', 'Noto Serif JP', serif;
+  --font-body: 'Libre Baskerville', 'Noto Serif JP', serif;
+  --font-accent: 'Great Vibes', cursive;
+  --font-jp: 'Noto Serif JP', serif;
+}
