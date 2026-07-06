@@ -8,6 +8,7 @@ import { createTable } from './table.js';
 import { createLights } from './lights.js';
 import { createCameraRig } from './camera-rig.js';
 import { createCardsManager } from './cards.js';
+import { createParticles } from './particles.js';
 import { createInput } from './input.js';
 import {
   setTextureDefaults, ensureFonts, loadDamask,
@@ -50,6 +51,12 @@ export async function initView3D() {
   rig.frameDefault();
 
   const cards = createCardsManager({ scene });
+  const particles = createParticles({ scene });
+
+  const GRADES = {
+    standard: { saturation: 1.02, tint: [1.0, 0.985, 0.955], vignette: 1.12, grain: 0.045, ca: 1.15 },
+    nightmare: { saturation: 0.7, tint: [0.9, 0.94, 1.0], vignette: 1.55, grain: 0.06, ca: 1.6 },
+  };
 
   reducedMq.addEventListener?.('change', () => {
     lights.setReducedMotion(reduced());
@@ -141,6 +148,7 @@ export async function initView3D() {
     const moodParams = lights.setDifficulty(difficulty);
     engine.setExposure(moodParams.exposure);
     engine.setFogDensity(moodParams.fogDensity);
+    engine.setGrade(nightmare ? GRADES.nightmare : GRADES.standard);
 
     const layout = cards.buildBoard(
       deck, difficulty, cfg, window.innerWidth / window.innerHeight,
@@ -165,6 +173,7 @@ export async function initView3D() {
       const moodParams = lights.setDifficulty(null);
       engine.setExposure(moodParams.exposure);
       engine.setFogDensity(moodParams.fogDensity);
+      engine.setGrade(GRADES.standard);
       table.setDifficulty(null);
       table.setLayout(34, 24);
       rig.frameDefault();
@@ -202,6 +211,7 @@ export async function initView3D() {
   let cssThrottle = 0;
   engine.onFrame((dt, t) => {
     cards.update(dt, t);
+    particles.update(dt, t);
     lights.update(t);
     rig.update(dt, t);
     const flicker = lights.getFlicker();

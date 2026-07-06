@@ -498,3 +498,12 @@ body[data-view="3d"] #hud {
   border-color: rgba(201, 168, 76, calc(0.08 + 0.14 * var(--flicker, 1)));
   box-shadow: 0 0 calc(4px + 10px * var(--flicker, 1)) rgba(201, 168, 76, 0.14);
 }
+
+/* === In-shader grain/vignette replace the DOM ones when the post stack is live === */
+
+body[data-post="1"]::after {
+  display: none;
+}
+body[data-post="1"] .table-panel > .screen::after {
+  display: none;
+}

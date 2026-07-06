@@ -1,8 +1,14 @@
 // Renderer foundation: color pipeline (sRGB out + ACES), quality tiers,
 // PMREM environment, resize, visibility pause, context-loss recovery,
-// and an FPS watchdog that steps DPR down on weak GPUs.
+// desktop HDR post stack, and an FPS watchdog with a degrade ladder:
+// DPR steps -> bloom off -> composer off.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { tickTweens } from './anim.js';
 
 export function detectTier() {
@@ -10,9 +16,68 @@ export function detectTier() {
   const small = Math.min(window.innerWidth, window.innerHeight) < 700;
   const mobile = coarse && (small || navigator.maxTouchPoints > 0);
   return mobile
-    ? { name: 'mobile', maxDPR: 1.5, texScale: 0.5, anisotropy: 4 }
-    : { name: 'desktop', maxDPR: 2, texScale: 1, anisotropy: 8 };
+    ? { name: 'mobile', maxDPR: 1.5, texScale: 0.5, anisotropy: 4, post: false }
+    : { name: 'desktop', maxDPR: 2, texScale: 1, anisotropy: 8, post: true };
 }
+
+// Final LDR pass: chromatic aberration + saturation/tint grade + vignette +
+// animated grain. Runs AFTER OutputPass (post-tonemap, sRGB space).
+const GradeShader = {
+  name: 'GradeShader',
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 },
+    uGrain: { value: 0.045 },
+    uVignette: { value: 1.12 },
+    uSaturation: { value: 1.02 },
+    uCA: { value: 1.15 },
+    uTint: { value: new THREE.Vector3(1.0, 0.985, 0.955) },
+  },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uGrain;
+    uniform float uVignette;
+    uniform float uSaturation;
+    uniform float uCA;
+    uniform vec3 uTint;
+    varying vec2 vUv;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
+
+    void main() {
+      vec2 d = vUv - 0.5;
+      float r2 = dot(d, d);
+
+      vec2 off = d * r2 * 0.012 * uCA;
+      vec3 col;
+      col.r = texture2D(tDiffuse, vUv + off).r;
+      col.g = texture2D(tDiffuse, vUv).g;
+      col.b = texture2D(tDiffuse, vUv - off).b;
+
+      float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = mix(vec3(l), col, uSaturation);
+      col *= uTint;
+
+      float vig = smoothstep(0.9, 0.2, r2 * uVignette);
+      col *= mix(0.5, 1.0, vig);
+
+      float g = hash(vUv * vec2(1287.0, 718.0) + fract(uTime * 0.61) * 43.7) - 0.5;
+      col += g * uGrain;
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `,
+};
 
 export function createEngine(canvas, tier, { debug = false } = {}) {
   const renderer = new THREE.WebGLRenderer({
@@ -42,6 +107,34 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
   scene.environmentIntensity = 0.35;
   pmrem.dispose();
 
+  // --- Post stack (desktop tier): HDR render -> bloom (threshold 1.0 = only
+  // true HDR highlights: flames, foil glints) -> tonemap/sRGB -> grade ---
+  let composer = null;
+  let bloomPass = null;
+  let gradePass = null;
+
+  if (tier.post && renderer.capabilities.isWebGL2) {
+    const size = new THREE.Vector2();
+    renderer.getDrawingBufferSize(size);
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, {
+      type: THREE.HalfFloatType,
+      samples: 4, // MSAA inside the composer
+    });
+    composer = new EffectComposer(renderer, target);
+    composer.setPixelRatio(dpr);
+    composer.setSize(window.innerWidth, window.innerHeight);
+
+    composer.addPass(new RenderPass(scene, camera));
+    bloomPass = new UnrealBloomPass(size.clone(), 0.55, 0.4, 1.0);
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+    gradePass = new ShaderPass(GradeShader);
+    composer.addPass(gradePass);
+    document.body.dataset.post = '1';
+  } else {
+    document.body.dataset.post = '0';
+  }
+
   const frameCbs = new Set();
   const resizeCbs = new Set();
   let contextRestoreCb = null;
@@ -51,7 +144,7 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
   let rafId = 0;
   let elapsed = 0;
 
-  // Watchdog
+  // Watchdog + degrade ladder
   let frames = 0;
   let windowStart = 0;
   let fpsEl = null;
@@ -62,6 +155,29 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
     document.body.appendChild(fpsEl);
   }
 
+  function applyDPR(v) {
+    dpr = v;
+    renderer.setPixelRatio(dpr);
+    if (composer) {
+      composer.setPixelRatio(dpr);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    }
+  }
+
+  function degradeOnce(fps) {
+    if (dpr > 1) {
+      applyDPR(Math.max(1, dpr - 0.25));
+      console.info(`[engine] fps ${fps.toFixed(0)} — DPR down to ${dpr}`);
+    } else if (bloomPass && bloomPass.enabled) {
+      bloomPass.enabled = false;
+      console.info(`[engine] fps ${fps.toFixed(0)} — bloom off`);
+    } else if (composer) {
+      composer = null;
+      document.body.dataset.post = '0';
+      console.info(`[engine] fps ${fps.toFixed(0)} — post stack off`);
+    }
+  }
+
   function loop() {
     rafId = requestAnimationFrame(loop);
     // Clamp only pathological gaps (tab resume); 0.1 keeps animations
@@ -70,7 +186,13 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
     elapsed += dt;
     tickTweens(dt);
     for (const cb of frameCbs) cb(dt, elapsed);
-    renderer.render(scene, camera);
+
+    if (composer) {
+      if (gradePass) gradePass.uniforms.uTime.value = elapsed;
+      composer.render(dt);
+    } else {
+      renderer.render(scene, camera);
+    }
 
     frames++;
     const span = elapsed - windowStart;
@@ -78,12 +200,11 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
       const fps = frames / span;
       frames = 0;
       windowStart = elapsed;
-      if (fps < 42 && dpr > 1) {
-        dpr = Math.max(1, dpr - 0.25);
-        renderer.setPixelRatio(dpr);
-        console.info(`[engine] fps ${fps.toFixed(0)} — stepping DPR down to ${dpr}`);
+      if (fps < 42) degradeOnce(fps);
+      if (fpsEl) {
+        fpsEl.textContent =
+          `${fps.toFixed(0)} fps  dpr ${dpr.toFixed(2)}  post ${composer ? 'on' : 'off'}`;
       }
-      if (fpsEl) fpsEl.textContent = `${fps.toFixed(0)} fps  dpr ${dpr.toFixed(2)}`;
     }
   }
 
@@ -103,6 +224,7 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    if (composer) composer.setSize(window.innerWidth, window.innerHeight);
     for (const cb of resizeCbs) cb();
   }
 
@@ -119,6 +241,17 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
     start();
   });
 
+  /** Difficulty mood for the grade pass (no-op when post is off). */
+  function setGrade({ saturation, tint, vignette, grain, ca } = {}) {
+    if (!gradePass) return;
+    const u = gradePass.uniforms;
+    if (saturation != null) u.uSaturation.value = saturation;
+    if (vignette != null) u.uVignette.value = vignette;
+    if (grain != null) u.uGrain.value = grain;
+    if (ca != null) u.uCA.value = ca;
+    if (tint) u.uTint.value.set(tint[0], tint[1], tint[2]);
+  }
+
   return {
     renderer,
     scene,
@@ -130,6 +263,10 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
     setContextRestore: (cb) => { contextRestoreCb = cb; },
     setExposure: (v) => { renderer.toneMappingExposure = v; },
     setFogDensity: (v) => { scene.fog.density = v; },
-    compile: () => renderer.compile(scene, camera),
+    setGrade,
+    compile: () => {
+      renderer.compile(scene, camera);
+      if (composer) composer.render(0.016); // warm the pass programs too
+    },
   };
 }
