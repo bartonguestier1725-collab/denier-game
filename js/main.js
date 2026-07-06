@@ -1,35 +1,39 @@
-import { gameState } from './game-state.js';
-import { initRenderer } from './renderer.js';
-import { initAtmosphere } from './atmosphere.js';
+import { initDomUi } from './dom-ui.js';
 
-initRenderer();
-initAtmosphere();
+const params = new URLSearchParams(location.search);
 
-document.getElementById('btn-start').addEventListener('click', () => {
-  gameState.showSelect();
-});
+function webgl2Available() {
+  try {
+    const c = document.createElement('canvas');
+    return !!(window.WebGL2RenderingContext && c.getContext('webgl2'));
+  } catch { return false; }
+}
 
-document.querySelector('.difficulty-grid').addEventListener('click', (e) => {
-  const btn = e.target.closest('.btn-difficulty');
-  if (!btn) return;
-  const difficulty = btn.dataset.difficulty;
-  if (difficulty) gameState.startGame(difficulty);
-});
+const useClassic = params.has('classic') || !webgl2Available();
+document.body.dataset.view = useClassic ? 'classic' : '3d';
 
-document.getElementById('game-screen').addEventListener('click', (e) => {
-  // First try to dismiss a mismatch (clicking anywhere closes the pair)
-  gameState.dismissMismatch();
+initDomUi();
 
-  const card = e.target.closest('.card');
-  if (!card || card.disabled || card.classList.contains('matched')) return;
-  const cardId = parseInt(card.dataset.cardId, 10);
-  if (!Number.isNaN(cardId)) gameState.flipCard(cardId);
-});
+const overlay = document.getElementById('loading-overlay');
+function hideOverlay() {
+  if (!overlay) return;
+  overlay.classList.add('done');
+  setTimeout(() => overlay.remove(), 600);
+}
 
-document.getElementById('btn-retry').addEventListener('click', () => {
-  gameState.retry();
-});
-
-document.getElementById('btn-title').addEventListener('click', () => {
-  gameState.backToTitle();
-});
+if (useClassic) {
+  const { initClassicRenderer } = await import('./renderer.js');
+  initClassicRenderer();
+  hideOverlay();
+} else {
+  try {
+    const { initView3D } = await import('./scene/view3d.js');
+    await initView3D();
+  } catch (err) {
+    console.error('[main] 3D init failed, falling back to classic:', err);
+    document.body.dataset.view = 'classic';
+    const { initClassicRenderer } = await import('./renderer.js');
+    initClassicRenderer();
+  }
+  hideOverlay();
+}

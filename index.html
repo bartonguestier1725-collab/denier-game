@@ -14,7 +14,14 @@
 </head>
 <body>
 
-  <canvas id="atmosphere-canvas"></canvas>
+  <canvas id="scene-canvas" aria-hidden="true"></canvas>
+  <div id="loading-overlay" aria-hidden="true">
+    <div class="loading-inner">
+      <div class="loading-fleuron">&#10086;</div>
+      <p>卓を整えています&#8230;</p>
+    </div>
+  </div>
+  <div id="sr-announcer" class="sr-only" aria-live="polite"></div>
 
   <div class="table-panel">
 
@@ -85,7 +92,14 @@
 
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/three.module.min.js",
+      "three/addons/": "./vendor/three/addons/"
+    }
+  }
+  </script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
