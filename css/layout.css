@@ -491,3 +491,10 @@ body[data-view="3d"] #game-screen.screen {
   .loading-fleuron { animation: none; }
   #loading-overlay { transition: none; }
 }
+
+/* === Candle-flicker HUD warmth (3D mode; --flicker fed by the scene) === */
+
+body[data-view="3d"] #hud {
+  border-color: rgba(201, 168, 76, calc(0.08 + 0.14 * var(--flicker, 1)));
+  box-shadow: 0 0 calc(4px + 10px * var(--flicker, 1)) rgba(201, 168, 76, 0.14);
+}

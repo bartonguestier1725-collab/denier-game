@@ -25,7 +25,7 @@ export async function initView3D() {
   const debug = params.has('debug');
 
   const tier = detectTier();
-  setTextureDefaults(tier);
+  setTextureDefaults({ ...tier, physical: tier.name === 'desktop' });
 
   const reducedMq = window.matchMedia('(prefers-reduced-motion: reduce)');
   const reduced = () => reducedMq.matches;
@@ -199,10 +199,19 @@ export async function initView3D() {
   });
 
   // --- Frame loop wiring ---
+  let cssThrottle = 0;
   engine.onFrame((dt, t) => {
     cards.update(dt, t);
     lights.update(t);
     rig.update(dt, t);
+    const flicker = lights.getFlicker();
+    table.setFlicker(flicker);
+    // HUD warmth breathes with the candles (throttled DOM write)
+    cssThrottle += dt;
+    if (cssThrottle > 0.12) {
+      cssThrottle = 0;
+      document.documentElement.style.setProperty('--flicker', flicker.toFixed(3));
+    }
   });
   engine.onResize(() => rig.onResize());
   engine.setContextRestore(() => {

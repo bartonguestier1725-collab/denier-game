@@ -132,6 +132,10 @@ export function createTable({ scene, texScale, anisotropy }) {
   return {
     setDifficulty,
     setLayout,
+    /** Photo brightness breathes with the shared candle flicker. */
+    setFlicker: (f) => {
+      if (material.map) material.color.setScalar(0.93 + f * 0.07);
+    },
     refresh: () => { if (material.map) material.map.needsUpdate = true; },
   };
 }
