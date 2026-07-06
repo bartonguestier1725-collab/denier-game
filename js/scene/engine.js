@@ -180,11 +180,13 @@ export function createEngine(canvas, tier, { debug = false } = {}) {
 
   function loop() {
     rafId = requestAnimationFrame(loop);
-    // Clamp only pathological gaps (tab resume); 0.1 keeps animations
-    // real-time even on slow GPUs down to 10fps.
-    const dt = Math.min(clock.getDelta(), 0.1);
+    const rawDt = clock.getDelta();
+    // Scene simulation clamps to 0.1 (sanity on huge gaps) but tweens are pure
+    // interpolation — tick them on near-real time so animations (and the
+    // input unlock that waits on them) finish on schedule even at 3fps.
+    const dt = Math.min(rawDt, 0.1);
     elapsed += dt;
-    tickTweens(dt);
+    tickTweens(Math.min(rawDt, 1));
     for (const cb of frameCbs) cb(dt, elapsed);
 
     if (composer) {

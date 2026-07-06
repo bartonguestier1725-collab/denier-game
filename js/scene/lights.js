@@ -79,9 +79,9 @@ export function createLights({ scene }) {
   const goldMat = new THREE.MeshStandardMaterial({
     color: 0xb9964a, metalness: 0.9, roughness: 0.32, envMapIntensity: 1.2,
   });
-  const waxMat = new THREE.MeshStandardMaterial({
-    color: 0xf3ead6, roughness: 0.55, envMapIntensity: 0.4,
-  });
+  // Unlit wax: the candle sits centimeters from its own point light — lit
+  // materials there blow out to a white square under ACES + bloom.
+  const waxMat = new THREE.MeshBasicMaterial({ color: 0xd8c9a8 });
   const flameTexture = bakeFlameTexture();
   const poolTexture = bakePoolTexture();
 

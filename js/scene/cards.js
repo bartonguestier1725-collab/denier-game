@@ -7,10 +7,13 @@
 // Orientation contract (see materials.js):
 //   rest state  : mesh rotX(+90deg) -> front cap faces DOWN, back cap up
 //   flip motion : flipper.rotation.x tweens 0 -> -PI (edge near camera lifts up)
+//
+// Matched pairs fly off to a won-pile at the table's front-left — clears the
+// board visually and stacks trophies, Balatro-style.
 import * as THREE from 'three';
 import {
   getFrontMaterial, getBackMaterial, getEdgeMaterial,
-  bakeBlobTexture, bakeFocusTexture,
+  bakeBlobTexture, bakeFocusTexture, bakeAlertTexture, bakeGlintTexture,
 } from './materials.js';
 import { tween, damp, Easings } from './anim.js';
 
@@ -112,18 +115,21 @@ class CardEntity {
     this.slotX = slot.x;
     this.slotZ = slot.z;
     this.jitter = (Math.random() - 0.5) * 0.052; // ±1.5deg hand-dealt feel
+    this.swayPhase = Math.random() * Math.PI * 2;
     this.faceUp = false;
     this.matched = false;
     this.dealing = false;
+    this.flying = false;   // en route to the won pile
+    this.frozen = false;   // resting on the won pile
     this.hoverT = 0;
     this.hoverTarget = 0;
     this.yFlip = 0;
     this.rotX = 0;
     this.shakeX = 0;
     this.pulse = 1;
+    this.squashY = 1;
     this.blobAlpha = 0;
     this.activeTween = null;
-    this.dimmedFront = null;
 
     const geo = getCardGeometry();
     this.frontMat = getFrontMaterial(card.denier, { nightmare });
@@ -148,26 +154,34 @@ class CardEntity {
     this.blob.renderOrder = 1;
   }
 
-  update(dt) {
-    this.hoverT = damp(this.hoverT, this.hoverTarget, 14, dt);
-    const lift = this.hoverT * 0.75;
+  get elevation() {
+    return this.yFlip + this.hoverT * 0.75;
+  }
 
-    if (!this.dealing) {
+  update(dt, t, swayOn) {
+    this.hoverT = damp(this.hoverT, this.hoverTarget, 14, dt);
+
+    if (this.frozen) {
+      this.blobMat.opacity = 0;
+      return;
+    }
+
+    if (!this.dealing && !this.flying) {
+      const swayY = swayOn && !this.faceUp ? Math.sin(t * 1.1 + this.swayPhase) * 0.05 : 0;
+      const swayR = swayOn ? Math.sin(t * 0.8 + this.swayPhase) * 0.008 : 0;
       this.flipper.position.set(
         this.slotX + this.shakeX,
-        REST_Y + this.yFlip + lift,
+        REST_Y + this.yFlip + this.hoverT * 0.75 + swayY,
         this.slotZ,
       );
+      this.flipper.rotation.x = this.rotX;
+      this.flipper.rotation.z = this.jitter + swayR;
     }
-    this.flipper.rotation.x = this.rotX;
-    this.flipper.rotation.z = this.jitter;
-    this.flipper.scale.setScalar(this.pulse);
+    this.flipper.scale.set(this.pulse, this.pulse * this.squashY, this.pulse);
 
-    const elevation = this.yFlip + lift;
-    const spread = 1 + elevation * 0.045;
+    const spread = 1 + this.elevation * 0.045;
     this.blob.scale.set(CARD_W * 1.35 * spread, CARD_H * 1.28 * spread, 1);
-    this.blobMat.opacity =
-      0.5 * this.blobAlpha * (this.matched ? 0.35 : 1) / (1 + elevation * 0.55);
+    this.blobMat.opacity = 0.5 * this.blobAlpha / (1 + this.elevation * 0.55);
   }
 
   _startTween(opts) {
@@ -201,6 +215,13 @@ class CardEntity {
       onComplete: () => {
         this.dealing = false;
         this.blobAlpha = 1;
+        // landing thunk: brief squash + shadow kiss
+        tween({
+          dur: 0.16,
+          ease: Easings.outQuad,
+          onUpdate: (e, k) => { this.squashY = 1 - Math.sin(Math.PI * k) * 0.12; },
+          onComplete: () => { this.squashY = 1; },
+        });
         if (onLand) onLand();
       },
     });
@@ -264,16 +285,69 @@ class CardEntity {
   setMatched(reduced) {
     this.matched = true;
     this.hoverTarget = 0;
-    // Per-card dimmed clone so the shared per-denier material stays untouched
-    this.dimmedFront = this.frontMat.clone();
-    this.dimmedFront.color.setHex(0x969288);
-    this.mesh.material = [this.dimmedFront, getEdgeMaterial(), getBackMaterial()];
     if (reduced) return;
     tween({
-      dur: 0.5,
+      dur: 0.4,
       ease: Easings.linear,
       onUpdate: (e, k) => { this.pulse = 1 + Math.sin(Math.PI * k) * 0.07; },
       onComplete: () => { this.pulse = 1; },
+    });
+  }
+
+  /** Glide face-up to the won pile and freeze there. */
+  flyToPile(order, dest, reduced) {
+    if (reduced) {
+      this.flipper.position.set(dest.x, dest.y, dest.z);
+      this.flipper.rotation.set(-Math.PI, 0, dest.fan);
+      this.blobAlpha = 0;
+      this.frozen = true;
+      return;
+    }
+    this.flying = true;
+    let from = null;
+    let fromRotX = 0;
+    let fromRotZ = 0;
+    this._startTween({
+      dur: 0.62,
+      delay: 0.42 + order * 0.09,
+      ease: Easings.inOutCubic,
+      onUpdate: (e, k) => {
+        if (!from) {
+          // capture at launch, not at schedule time — the flip may still be settling
+          from = this.flipper.position.clone();
+          fromRotX = this.flipper.rotation.x;
+          fromRotZ = this.flipper.rotation.z;
+        }
+        const x = from.x + (dest.x - from.x) * e;
+        const z = from.z + (dest.z - from.z) * e;
+        const y = from.y + (dest.y - from.y) * e + Math.sin(Math.PI * k) * 7;
+        this.flipper.position.set(x, y, z);
+        // ease any residual flip-overshoot into the flat pile pose
+        this.flipper.rotation.x = fromRotX + (-Math.PI - fromRotX) * Math.min(1, k * 2.5);
+        this.flipper.rotation.z = fromRotZ + (dest.fan - fromRotZ) * e;
+        this.blobAlpha = Math.max(0, 1 - k * 2.5);
+      },
+      onComplete: () => {
+        this.flying = false;
+        this.frozen = true;
+        this.flipper.position.set(dest.x, dest.y, dest.z);
+        this.flipper.rotation.set(-Math.PI, 0, dest.fan);
+      },
+    });
+  }
+
+  /** Small celebratory hop (win sequence cascade). */
+  hop(delay) {
+    if (!this.frozen) return;
+    const baseY = this.flipper.position.y;
+    tween({
+      dur: 0.34,
+      delay,
+      ease: Easings.outQuad,
+      onUpdate: (e, k) => {
+        this.flipper.position.y = baseY + Math.sin(Math.PI * k) * 1.3;
+      },
+      onComplete: () => { this.flipper.position.y = baseY; },
     });
   }
 
@@ -281,7 +355,6 @@ class CardEntity {
     if (this.activeTween) this.activeTween.cancel();
     this.blob.geometry.dispose();
     this.blobMat.dispose();
-    if (this.dimmedFront) this.dimmedFront.dispose();
   }
 }
 
@@ -294,6 +367,8 @@ export function createCardsManager({ scene }) {
   const proxyMaterial = new THREE.MeshBasicMaterial({ visible: false });
   let layout = null;
   let hovered = null;
+  let pileCount = 0;
+  let pileAnchor = { x: -30, z: 12 };
 
   const focusMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(CARD_W + 2.0, CARD_H + 2.0),
@@ -311,9 +386,75 @@ export function createCardsManager({ scene }) {
   focusMesh.visible = false;
   scene.add(focusMesh);
 
+  // Red alert rings for mismatches (one per card of the pair)
+  const alertMeshes = [0, 1].map(() => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(CARD_W + 2.0, CARD_H + 2.0),
+      new THREE.MeshBasicMaterial({
+        map: bakeAlertTexture(),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0,
+      }),
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.32;
+    m.renderOrder = 3;
+    m.visible = false;
+    scene.add(m);
+    return m;
+  });
+
+  // Hover glint sweep
+  const glintTexture = bakeGlintTexture();
+  glintTexture.wrapS = THREE.ClampToEdgeWrapping;
+  const glintMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(CARD_W * 0.96, CARD_H * 0.96),
+    new THREE.MeshBasicMaterial({
+      map: glintTexture,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      opacity: 0,
+    }),
+  );
+  glintMesh.rotation.x = -Math.PI / 2;
+  glintMesh.renderOrder = 3;
+  glintMesh.visible = false;
+  scene.add(glintMesh);
+  let glintEntity = null;
+  let glintTween = null;
+
+  // Shockwave rings (two, cycled)
+  const rings = [0, 1].map(() => {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(0.42, 0.5, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0xe8d48b,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0,
+        side: THREE.DoubleSide,
+      }),
+    );
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = 0.3;
+    m.visible = false;
+    m.renderOrder = 3;
+    scene.add(m);
+    return m;
+  });
+  let ringCursor = 0;
+
   function clearBoard() {
     hovered = null;
+    glintEntity = null;
+    glintMesh.visible = false;
     focusMesh.visible = false;
+    for (const a of alertMeshes) a.visible = false;
+    for (const r of rings) r.visible = false;
     for (const ent of entities.values()) {
       boardGroup.remove(ent.flipper);
       boardGroup.remove(ent.blob);
@@ -325,11 +466,16 @@ export function createCardsManager({ scene }) {
       p.geometry.dispose();
     }
     proxies.length = 0;
+    pileCount = 0;
   }
 
   function buildBoard(deck, difficulty, cfg, aspect) {
     clearBoard();
     layout = computeLayout(cfg.cols, cfg.rows, aspect);
+    pileAnchor = {
+      x: -(layout.spanW / 2 + 12),
+      z: layout.spanH / 2 - 2,
+    };
     const nightmare = difficulty === 'nightmare';
     const blobTexture = bakeBlobTexture();
 
@@ -377,8 +523,101 @@ export function createCardsManager({ scene }) {
     if (hovered === target) return !!target;
     if (hovered) hovered.hoverTarget = 0;
     hovered = target;
-    if (hovered) hovered.hoverTarget = 1;
+    if (hovered) {
+      hovered.hoverTarget = 1;
+      // glint sweep across the card back
+      glintEntity = hovered;
+      glintMesh.visible = true;
+      glintMesh.position.set(hovered.slotX, REST_Y + 0.18, hovered.slotZ);
+      glintMesh.rotation.z = hovered.jitter;
+      if (glintTween) glintTween.cancel();
+      glintTexture.offset.x = -0.75;
+      glintMesh.material.opacity = 0.0;
+      glintTween = tween({
+        dur: 0.5,
+        ease: Easings.outCubic,
+        onUpdate: (e, k) => {
+          glintTexture.offset.x = -0.75 + e * 1.5;
+          glintMesh.material.opacity = Math.sin(Math.PI * k) * 0.7;
+        },
+        onComplete: () => { glintMesh.visible = false; glintTween = null; },
+      });
+    } else {
+      glintEntity = null;
+      glintMesh.visible = false;
+      if (glintTween) { glintTween.cancel(); glintTween = null; }
+    }
     return !!target;
+  }
+
+  /** Red ring flash under a mismatched pair. */
+  function flashMismatch(cardIds, reduced) {
+    if (reduced) return;
+    cardIds.slice(0, 2).forEach((id, i) => {
+      const ent = entities.get(id);
+      if (!ent) return;
+      const m = alertMeshes[i];
+      m.position.set(ent.slotX, 0.32, ent.slotZ);
+      m.rotation.z = ent.jitter;
+      m.visible = true;
+      tween({
+        dur: 0.5,
+        ease: Easings.linear,
+        onUpdate: (e, k) => { m.material.opacity = Math.sin(Math.PI * k) * 0.8; },
+        onComplete: () => { m.visible = false; m.material.opacity = 0; },
+      });
+    });
+  }
+
+  /** Expanding gold shockwave at a table position. */
+  function shockwave(x, z, reduced) {
+    if (reduced) return;
+    const m = rings[ringCursor];
+    ringCursor = (ringCursor + 1) % rings.length;
+    m.position.set(x, 0.3, z);
+    m.visible = true;
+    tween({
+      dur: 0.55,
+      ease: Easings.outCubic,
+      onUpdate: (e, k) => {
+        const s = 1 + e * 13;
+        m.scale.set(s, s, 1);
+        m.material.opacity = 0.55 * (1 - k);
+      },
+      onComplete: () => { m.visible = false; },
+    });
+  }
+
+  /** Send a matched pair to the won pile. Returns pair midpoint for FX. */
+  function flyMatchedToPile(cardIds, reduced) {
+    let mx = 0;
+    let mz = 0;
+    let n = 0;
+    cardIds.forEach((id, order) => {
+      const ent = entities.get(id);
+      if (!ent) return;
+      mx += ent.slotX;
+      mz += ent.slotZ;
+      n++;
+      const idx = pileCount++;
+      ent.flyToPile(order, {
+        x: pileAnchor.x + (Math.random() - 0.5) * 0.9,
+        z: pileAnchor.z + (Math.random() - 0.5) * 0.9,
+        y: REST_Y + idx * CARD_T * 1.15,
+        fan: (idx % 7 - 3) * 0.07 + (Math.random() - 0.5) * 0.04,
+      }, reduced);
+    });
+    return n ? { x: mx / n, z: mz / n } : null;
+  }
+
+  /** Win cascade: every piled card hops in sequence. */
+  function celebratePile(reduced) {
+    if (reduced) return;
+    let i = 0;
+    for (const ent of entities.values()) {
+      if (ent.frozen) ent.hop(i * 0.05);
+      i++;
+    }
   }
 
   function focusSlot(index) {
@@ -391,10 +630,13 @@ export function createCardsManager({ scene }) {
     focusMesh.visible = true;
   }
 
-  function update(dt, t) {
-    for (const ent of entities.values()) ent.update(dt);
+  function update(dt, t, swayOn) {
+    for (const ent of entities.values()) ent.update(dt, t, swayOn);
     if (focusMesh.visible) {
       focusMesh.material.opacity = 0.55 + Math.sin(t * 3.2) * 0.25;
+    }
+    if (glintEntity && glintMesh.visible) {
+      glintMesh.position.y = REST_Y + 0.18 + glintEntity.elevation;
     }
   }
 
@@ -404,9 +646,14 @@ export function createCardsManager({ scene }) {
     dealAll,
     setHover,
     focusSlot,
+    flashMismatch,
+    shockwave,
+    flyMatchedToPile,
+    celebratePile,
     update,
     entity: (id) => entities.get(id),
     raycastTargets: () => proxies,
     getLayout: () => layout,
+    getPileAnchor: () => pileAnchor,
   };
 }

@@ -507,3 +507,8 @@ body[data-post="1"]::after {
 body[data-post="1"] .table-panel > .screen::after {
   display: none;
 }
+
+/* 3D mode drops a real monocle prop on the table instead of the CSS one */
+body[data-view="3d"] .table-monocle {
+  display: none !important;
+}

@@ -512,6 +512,49 @@ export function bakeFocusTexture() {
   return tex;
 }
 
+/** Red warning ring — flashed under a mismatched pair. */
+export function bakeAlertTexture() {
+  const key = 'alert';
+  if (textureCache.has(key)) return textureCache.get(key);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 384;
+  const ctx = canvas.getContext('2d');
+  ctx.shadowColor = 'rgba(255, 70, 60, 0.9)';
+  ctx.shadowBlur = 26;
+  ctx.strokeStyle = '#ff5a4a';
+  ctx.lineWidth = 7;
+  roundedRect(ctx, 22, 22, 212, 340, 18);
+  ctx.stroke();
+  ctx.stroke();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  textureCache.set(key, tex);
+  return tex;
+}
+
+/** Diagonal light stripe — swept over a hovered card back. */
+export function bakeGlintTexture() {
+  const key = 'glint';
+  if (textureCache.has(key)) return textureCache.get(key);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 256, 0);
+  g.addColorStop(0.32, 'rgba(255, 244, 214, 0)');
+  g.addColorStop(0.5, 'rgba(255, 244, 214, 0.55)');
+  g.addColorStop(0.68, 'rgba(255, 244, 214, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  textureCache.set(key, tex);
+  return tex;
+}
+
 // --- Materials (shared instances, cached) ---
 
 export function getFrontMaterial(denier, { nightmare = false } = {}) {

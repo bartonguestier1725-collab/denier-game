@@ -139,6 +139,8 @@ export function initDomUi() {
     if (!referenceChart.classList.contains('hidden')) {
       chartWasShown = true;
       if (tableMonocle) tableMonocle.classList.remove('hidden');
+      // The 3D view drops a monocle prop on the table (diegetic indicator)
+      window.dispatchEvent(new CustomEvent('denier:chart-shown'));
     }
   });
 
