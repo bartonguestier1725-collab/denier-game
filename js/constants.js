@@ -7,7 +7,7 @@ export const DIFFICULTIES = Object.freeze({
   nightmare: Object.freeze({ deniers: Object.freeze(NORMAL_DENIERS), cols: 4, rows: 5 }),
 });
 
-export const MISMATCH_DELAY = 1000; // ms
+export const MISMATCH_DELAY = 1800; // ms — enough time to memorize the 2nd card
 export const TIMER_INTERVAL = 100; // ms
 export const RESULT_TRANSITION_DELAY = 500; // ms
 

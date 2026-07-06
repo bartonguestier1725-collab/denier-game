@@ -1,0 +1,17 @@
+# Staging area (generated images, downloaded assets, research)
+.workspace/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+
+# Node (if npx serve creates anything)
+node_modules/
+
+# Project instructions (contains business strategy)
+CLAUDE.md

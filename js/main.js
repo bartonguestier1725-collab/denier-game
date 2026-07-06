@@ -16,7 +16,10 @@ document.querySelector('.difficulty-grid').addEventListener('click', (e) => {
   if (difficulty) gameState.startGame(difficulty);
 });
 
-document.getElementById('game-board').addEventListener('click', (e) => {
+document.getElementById('game-screen').addEventListener('click', (e) => {
+  // First try to dismiss a mismatch (clicking anywhere closes the pair)
+  gameState.dismissMismatch();
+
   const card = e.target.closest('.card');
   if (!card || card.disabled || card.classList.contains('matched')) return;
   const cardId = parseInt(card.dataset.cardId, 10);

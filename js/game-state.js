@@ -15,6 +15,7 @@ export function createGameState() {
   let totalPairs = 0;
   let firstFlipped = null;
   let pendingTimeout = null;
+  let pendingDismiss = null;
   let timerStarted = false;
 
   const timer = createTimer((formatted) => {
@@ -45,8 +46,15 @@ export function createGameState() {
       clearTimeout(pendingTimeout);
       pendingTimeout = null;
     }
+    pendingDismiss = null;
     firstFlipped = null;
     subState = 'idle';
+  }
+
+  function dismissMismatch() {
+    if (subState !== 'waitingDismiss' || !pendingDismiss) return;
+    pendingDismiss();
+    pendingDismiss = null;
   }
 
   function resetPlayState(diff) {
@@ -71,12 +79,17 @@ export function createGameState() {
   function startGame(diff) {
     resetPlayState(diff);
     phase = 'playing';
+    document.body.dataset.difficulty = diff;
     emit('SCREEN_CHANGE', { phase });
   }
 
   function flipCard(cardId) {
     if (phase !== 'playing') return;
     if (subState === 'resolving' || subState === 'completing') return;
+    if (subState === 'waitingDismiss') {
+      dismissMismatch();
+      return;
+    }
 
     const card = cardById.get(cardId);
     if (!card || card.matched) return;
@@ -139,13 +152,14 @@ export function createGameState() {
           cardIds: [firstFlipped.id, second.id],
         });
 
+        subState = 'waitingDismiss';
         const flippedFirst = firstFlipped;
-        pendingTimeout = setTimeout(() => {
-          pendingTimeout = null;
+        const dismissPair = () => {
           emit('CARD_UNFLIP', { cardIds: [flippedFirst.id, second.id] });
           firstFlipped = null;
           subState = 'idle';
-        }, MISMATCH_DELAY);
+        };
+        pendingDismiss = dismissPair;
       }
     }
   }
@@ -168,6 +182,7 @@ export function createGameState() {
     matchedCount = 0;
     totalPairs = 0;
     phase = 'title';
+    delete document.body.dataset.difficulty;
     emit('SCREEN_CHANGE', { phase });
   }
 
@@ -188,6 +203,7 @@ export function createGameState() {
     showSelect,
     startGame,
     flipCard,
+    dismissMismatch,
     retry,
     backToTitle,
     getState,

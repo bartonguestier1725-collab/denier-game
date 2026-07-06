@@ -20,11 +20,11 @@
 
     <!-- タイトル画面 -->
     <section id="title-screen" class="screen active">
-      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--top" alt="" aria-hidden="true">
+      <div class="ornament-line" aria-hidden="true"></div>
       <h1>デニール神経衰弱</h1>
       <p class="tagline">ストッキングの厚さ、見分けられる？</p>
       <button type="button" id="btn-start" class="btn btn-primary">START</button>
-      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--bottom" alt="" aria-hidden="true">
+      <div class="ornament-line" aria-hidden="true"></div>
     </section>
 
     <!-- 難易度選択画面 -->
@@ -56,12 +56,19 @@
         <span id="move-counter">手数: 0</span>
         <span id="timer">時間: 0:00</span>
       </div>
+      <div id="reference-chart" class="reference-chart hidden">
+        <!-- Cards will be populated by JS -->
+      </div>
+      <button type="button" id="btn-toggle-chart" class="btn-toggle-chart" title="デニール一覧表">
+        🛎️
+      </button>
+      <div id="table-monocle" class="table-monocle hidden" aria-hidden="true"></div>
       <div id="game-board"></div>
     </section>
 
     <!-- 結果画面 -->
     <section id="result-screen" class="screen">
-      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--top" alt="" aria-hidden="true">
+      <div class="ornament-line" aria-hidden="true"></div>
       <h2>結果</h2>
       <div class="result-stats">
         <p id="result-difficulty"></p>
@@ -71,8 +78,9 @@
       <div class="result-buttons">
         <button type="button" id="btn-retry" class="btn btn-primary">もう一回</button>
         <button type="button" id="btn-title" class="btn btn-secondary">タイトルへ</button>
+        <button type="button" id="btn-share" class="btn btn-share">𝕏 で共有</button>
       </div>
-      <img src="assets/decorations/openclipart-ornamental-divider.svg" class="ornament-divider ornament-divider--bottom" alt="" aria-hidden="true">
+      <div class="ornament-line" aria-hidden="true"></div>
     </section>
 
   </div>
