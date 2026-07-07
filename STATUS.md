@@ -2,6 +2,20 @@
 
 > **最終更新: 2026-07-07**
 
+## ドキュメント地図（どこを読めばいいか）
+
+| ファイル | 読者 | 内容 |
+|---|---|---|
+| `README.md` | 誰でも | 何を・どう動かす・技術概要（公開向け） |
+| `ARCHITECTURE.md` | AI/開発者 | 全体構造・モジュール責務・イベント契約・データフロー（実態と一致必須） |
+| `js/scene/README.md` | 3Dを触る人 | 座標系/テクスチャ向き/タイミング等の不変条件（破ると静かに壊れる） |
+| `STATUS.md` | このファイル | Phase進捗・次のアクション |
+| `tools/README.md` | 保守 | 参照整合チェッカーの使い方 |
+| `CLAUDE.md` | 内部 | プロジェクト仕様・戦略（gitignored・非公開） |
+| memory/ | AIセッション | 横断知見（`~/.claude/projects/-home-gen-projects-denier-game/memory/`） |
+
+構造変更後は必ず `node tools/check-references.mjs` でグリーン確認。
+
 ---
 
 ## 現在の状態
